@@ -16,6 +16,8 @@ import type {
   ReleaseDatesResponse,
 } from "@/types/movieDataAPI.types";
 import Image from "next/image";
+import { useUser } from "@clerk/nextjs";
+import api from "@/lib/utils/axiosInstance";
 
 interface ReleaseDateType {
   day: string;
@@ -39,6 +41,7 @@ interface PosterHeaderProps {
   setOpen: (isOpen: boolean) => void;
   movieVideo: string | null;
   isMobileView: boolean;
+  averageRating: number;
 }
 
 function MovieDetail({
@@ -72,6 +75,58 @@ function MovieDetail({
   const [releaseDate, setReleaseDate] = useState<ReleaseDateType | null>(null);
   const [runtime, setRuntime] = useState<string | null>(null);
   const [leadPeoples, setLeadPeoples] = useState<LeadPeopleType[]>([]);
+
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!movieDetails?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/reviews?filmId=${movieDetails?.id}`);
+        setReviews(response.data.data ?? []);
+        console.log("Fetched reviews:", response.data);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const insertReviews = async () => {
+      if (!movieReviews || movieReviews.length === 0) return;
+      try {
+        await api.post("/reviews/insert",
+          { filmId: movieDetails?.id, reviews: movieReviews });
+        console.log("Insert reviews success!");
+      } catch (error) {
+        console.error("Error creating reviews:", error);
+      } finally {
+        fetchReviews();
+      }
+    };
+
+    fetchReviews();
+
+    if (movieReviews && movieReviews.length > 0) {
+      insertReviews();
+    }
+  }, [movieDetails?.id, movieReviews]);
+
+  useEffect(() => {
+    if (reviews) {
+      const toltalRating = reviews.reduce((accumulator, currentValue) => {
+        return currentValue.author_details.rating ? accumulator + currentValue.author_details.rating : accumulator;
+      }, 0);
+      setAverageRating(toltalRating / reviews.length);
+    }
+  }, [reviews]);
 
   useEffect(() => {
     const bg_wrapper = refBG.current?.style;
@@ -137,7 +192,6 @@ function MovieDetail({
         }
       });
       const mergedCrewList = Object.values(mergedCrew);
-      //? console.log(mergedCrewList);
       //! Sort the mergedCrewList based on job role order
       mergedCrewList.sort((a, b) => {
         const indexA = jobRoleOrder.indexOf(a.jobs[0] ?? "");
@@ -196,6 +250,7 @@ function MovieDetail({
                   setOpen={setOpen}
                   movieVideo={movieVideo}
                   isMobileView={isMobileView}
+                  averageRating={averageRating}
                 />
               )}
             </div>
@@ -213,13 +268,14 @@ function MovieDetail({
               setOpen={setOpen}
               movieVideo={movieVideo}
               isMobileView={isMobileView}
+              averageRating={averageRating}
             />
           )}
         </div>
         {/*For Inserting the Movie data inside, In mobile view*/}
         <Content
           credits={movieCredits}
-          reviews={movieReviews}
+          reviews={reviews}
           images={movieImages}
           recommendations={movieRecommendations}
           links={{
@@ -235,6 +291,8 @@ function MovieDetail({
             revenue: movieDetails.revenue,
           }}
           keywords={movieKeywords}
+          user={user}
+          setReviews={setReviews}
         />
       </main>
     </div>
@@ -251,6 +309,7 @@ const PosterHeader: React.FC<PosterHeaderProps> = ({
   setOpen,
   movieVideo,
   isMobileView,
+  averageRating
 }) => {
   return (
     <header className="poster_header_wrapper">
@@ -277,10 +336,10 @@ const PosterHeader: React.FC<PosterHeaderProps> = ({
         </section>
         <nav className="action">
           <ul>
-            <li className="flex rating">
+            {averageRating ? <li className="flex rating">
               <div className="w-[68px] h-[68px]">
                 <CircularProgressBar
-                  percentage={Math.floor(movieDetails.vote_average * 10)}
+                  percentage={Math.floor(averageRating * 10)}
                   color={"rgb(33,208,122)"}
                   widthAndHeight={68}
                 />
@@ -294,7 +353,7 @@ const PosterHeader: React.FC<PosterHeaderProps> = ({
                   "User Score"
                 )}
               </div>
-            </li>
+            </li> : <></>}
             <li className="trailer">
               <ModalVideo
                 channel="youtube"
