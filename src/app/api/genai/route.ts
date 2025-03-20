@@ -1,50 +1,35 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import axios, { AxiosError } from "axios";
-import geminiPrompt from "@/lib/constants/geminiPrompt";
-import { env } from "@/env.js";
-import { type MovieListResponse } from "@/types/movieDataAPI.types";
+import * as gemini from "@google/generative-ai";
+import { HarmCategory } from "@google/generative-ai";
+import { NextResponse } from "next/server"; // Use NextResponse for Next.js API routes
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-const API_KEY = env.TMDB_API_KEY;
-// const API_URL = env.TMDB_API_URL;
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
 
-const fetchData = async <T>(url: string, params = {}, retries = 3): Promise<T> => {
-  try {
-    const response = await axios.get(url, {
-      params: { api_key: API_KEY, ...params },
-      timeout: 10000,
-    });
-    return response.data as T;
-  } catch (error) {
-    if (error instanceof AxiosError && retries > 0) {
-      console.log(`Retrying ${url}. Attempts left: ${retries - 1}`);
-      return fetchData(url, params, retries - 1);
+        if (!process.env.GEMINI_API_KEY) {
+            return NextResponse.json({ error: "Missing Google API Key" }, { status: 500 });
+        }
+
+        const genAI = new gemini.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                {
+                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold: gemini.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                },
+            ],
+        });
+
+        const chat = model.startChat({ history: body.history || [] });
+        const msg = body.message;
+        const result = await chat.sendMessage(msg);
+        const response = await result.response;
+        const text = response.text();
+
+        return new NextResponse(text, { status: 200 }); // ✅ Always return a response
+    } catch (error) {
+        console.error("Error generating content:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
-    console.error(`Error in fetching ${url}:`, error);
-    throw error;
-  }
-};
-
-export async function GET(request: NextRequest) {
-  const searchQuery = request.nextUrl.searchParams.get('query');
-
-  if (!searchQuery) {
-    return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
-  }
-
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-pro-exp-02-05" });
-    const prompt = geminiPrompt(searchQuery);
-    const result = await model.generateContent(prompt);
-    const generatedUrl = result.response.text();
-
-    console.log("GenAI response:", generatedUrl);
-
-    const data = await fetchData<MovieListResponse>(generatedUrl, { language: "en-US", page: 1 });
-    return NextResponse.json(data.results);
-  } catch (error) {
-    console.error('Error processing request:', error);
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
-  }
 }
