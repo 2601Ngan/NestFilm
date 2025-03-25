@@ -5,7 +5,6 @@ Movie Review is a web-based application designed for users to explore, review, a
 
 ## Technologies Used
 - **Frontend:** AngularJS, Next.js, TypeScript
-- **Backend:** Django
 - **Database:** MySQL (hosted on Aiven)
 - **ORM:** Prisma
 - **Authentication & User Management:** Clerk
@@ -20,24 +19,17 @@ Movie Review is a web-based application designed for users to explore, review, a
 
 ## Setup Instructions
 1. Clone the repository:
-   ```sh
-   git clone https://github.com/your-username/movie-review.git
-   cd movie-review
-   ```
+
 2. Install dependencies for the frontend and backend:
-   ```sh
-   cd frontend
+
    npm install
-   cd ../backend
-   pip install -r requirements.txt
-   ```
+
 3. Set up environment variables for API keys and database credentials.
 4. Run the development servers:
    - Frontend: `npm run dev`
-   - Backend: `python manage.py runserver`
 
 ## Contributing
-Contributions are welcome! Feel free to submit a pull request or report any issues.
+Contributions by team
 
 ## License
 This project is licensed under the MIT License.
