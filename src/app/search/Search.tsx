@@ -13,15 +13,19 @@ const MovieCard = dynamic(() => import("@/components/card/moviecard/MovieCard"),
   loading: () => <Spinner>{null}</Spinner>,
 });
 
-const Search = ({ query }: { query: string }) => {
+const Search = ({ query, withKeywords }: { query: string, withKeywords: string }) => {
   const [movieData, setMovieData] = useState<Movie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const res = await api.get(`/search?query=${query}`);
-      console.log(res.data.data.movies);
+      let res;
+      if(query) {
+        res = await api.get(`/search?query=${query}`);
+      } else {
+        res = await api.get(`/search?with_keywords=${withKeywords}`);
+      }
       setMovieData(res.data.data.movies);
       setIsLoading(false);
     };
@@ -29,11 +33,18 @@ const Search = ({ query }: { query: string }) => {
     void fetchData();
   }, [query]);
 
+  if (movieData.length == 0) {
+    return <div className="search-movies">
+      <h2> No Search Results for &quot;
+        <span className="text-purple-400">{query}</span>&quot;. Try to searching another film
+      </h2>
+    </div>
+  }
+
   return (
     <div className="search-movies">
       <h2>
-        Search Results for &quot;
-        <span className="text-purple-400">{query}</span>&quot;
+        Search Results:
       </h2>
       <div className="movie-list">
         {Array.from({ length: movieData.length ?? 20 }).map((_, index) => (
