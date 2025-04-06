@@ -4,7 +4,7 @@
 Movie Review is a web-based application designed for users to explore, review, and rate movies. The platform provides an intuitive interface for browsing movie details, leaving feedback, and discovering trending films. This project integrates modern web technologies to deliver a seamless and interactive user experience.
 
 ## Technologies Used
-- **Frontend:** AngularJS, Next.js, TypeScript
+- **Frontend:** React, Next.js, TypeScript
 - **Database:** MySQL (hosted on Aiven)
 - **ORM:** Prisma
 - **Authentication & User Management:** Clerk
