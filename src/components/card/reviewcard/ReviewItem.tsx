@@ -5,8 +5,10 @@ import api from "@/lib/utils/axiosInstance";
 import user_icon from "@/assets/image/user_icon.png";
 import Image from "next/image";
 import SpeechComponent from "@/components/SpeechComponent";
+import toast from "react-hot-toast";
+import CommentEvaluation from "@/components/ui/CommentEvaluation";
 
-function ReviewItem({ item, formatDate, setReviews }: { item: any, formatDate: Function, setReviews?: Function }) {
+function ReviewItem({ item, formatDate, setReviews, index }: { item: any, formatDate: Function, setReviews?: Function, index: number }) {
     const [totalLike, setTotalLike] = useState(item.likes.length);
     const [isOpen, setIsOpen] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
@@ -16,10 +18,12 @@ function ReviewItem({ item, formatDate, setReviews }: { item: any, formatDate: F
     const [isLoading, setIsLoading] = useState(false);
 
     async function toggleLikeHandler(reviewId: string) {
-        if (!isSignedIn) return;
-
+        if (!isSignedIn) {
+            toast.error("Please sign in to like this review")
+            return;
+        }
         try {
- setIsLoading(true);
+            setIsLoading(true);
             await api.post("/reviews/like", {
                 userId,
                 reviewId,
@@ -34,13 +38,12 @@ function ReviewItem({ item, formatDate, setReviews }: { item: any, formatDate: F
         }
     }
 
-    async function updateReviewHandler(event: React.FormEvent, content: string, rating: number) {
-        event.preventDefault();
+    async function updateReviewHandler(content: string, rating: number) {
         if (!isSignedIn) return;
 
         try {
             await api.put("/reviews/" + item.id, {
-                content,
+                content: content ?? "",
                 rating,
             });
             setReviews?.((reviews: Review[]) => reviews.map((review) => review.id === item.id ? { ...review, content: content, author_details: { ...review.author_details, rating: rating } } : review));
@@ -102,7 +105,7 @@ function ReviewItem({ item, formatDate, setReviews }: { item: any, formatDate: F
                             <h3>{item.author_details.username}</h3>
                             <div className='flex'>
                                 <div className='rounded_rating'>{item.author_details.rating + "/10"}</div>
-                                <h5 className = 'text-gray-400 font-sm'>
+                                <h5 className='text-gray-400 font-sm'>
                                     {(<span> Written by {item.author.length == 0 ? item.author_details.username : item.author} on {formatDate(item.created_at)} </span>)}
                                 </h5>
                             </div>
@@ -170,15 +173,18 @@ function ReviewItem({ item, formatDate, setReviews }: { item: any, formatDate: F
                         </div>}
 
                     </div>
-                    <SpeechComponent text={item.content}/>
+                    <SpeechComponent text={item.content} ttsIndex={index} />
                     <div className='text_review'>
-                    <p dangerouslySetInnerHTML={{ __html: item.content }}></p>
+                        <p dangerouslySetInnerHTML={{ __html: item.content }}></p>
                     </div>
-                    <div className="text_review pt-2 flex content-center">
-                        <span>{totalLike}</span>
-                        <button type="button" disabled={isLoading} className="ml-3" onClick={() => toggleLikeHandler(item.id)}>
-                            {isLoading ? "Processing..." : toggleLike ? "❤️" : "🤍"}
-                        </button>
+                    <div className="flex items-center justify-between">
+                        <div className="text_review pt-2 flex content-center">
+                            <span>{totalLike}</span>
+                            <button type="button" disabled={isLoading} className="ml-3" onClick={() => toggleLikeHandler(item.id)}>
+                                {toggleLike ? "❤️" : "🤍"}
+                            </button>
+                        </div>
+                        <CommentEvaluation evaluation={item.comment_evaluation} />
                     </div>
                 </>
             }

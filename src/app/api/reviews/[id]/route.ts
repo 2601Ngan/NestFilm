@@ -6,14 +6,14 @@ import { z } from "zod"; // Thư viện kiểm tra dữ liệu đầu vào
 
 // Schema kiểm tra dữ liệu đầu vào khi update review
 const updateReviewSchema = z.object({
-    content: z.string().min(1, "Content is required"),
+    content: z.string().optional(),
     rating: z.number().min(0, "Rating must be a non-negative number"),
 });
 
 // Schema kiểm tra dữ liệu đầu vào của review
 const reviewSchema = z.object({
     filmId: z.number().positive("Invalid film ID"),
-    content: z.string().min(1, "Content is required"),
+    content: z.string().optional(),
     created_at: z.preprocess((arg) => new Date(arg as string), z.date()),
     updated_at: z.preprocess((arg) => new Date(arg as string), z.date()),
     url: z.string().url("Invalid URL"),
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
         const updatedData = await prisma.$transaction(async (tx) => {
             const updatedReview = await tx.review.update({
                 where: { id: params.id },
-                data: { content },
+                data: { content: content ?? "" },
                 select: { authorDetailsId: true },
             });
 
@@ -75,6 +75,38 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
 
             return { updatedReview, updatedAuthorDetails };
         });
+
+        
+    if (!content || content.length === 0) {
+        const prompt = `
+  You are a content evaluation assistant. Your task is to classify the sentiment of a comment.
+  A Positive comment expresses praise, satisfaction, or favorable feedback.
+  A Negative comment expresses dissatisfaction, complaints, or critical feedback.
+  A Neutral comment is objective, informational, or lacks strong emotion.
+  
+  Comment: "${content}"
+  
+  What is the sentiment of this comment? Answer only with one word:
+  
+  Positive
+  Negative
+  Neutral`;
+  
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DEV_URL}/api/gemini`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: prompt, history: [] }),
+        });
+  
+        if (!response.ok) throw new Error("Failed to generate content");
+  
+        const evaluatedData = await response.text();
+        await prisma.review.update({
+          where: { id: params.id },
+          data: { comment_evaluation: evaluatedData.trim() },
+        });
+      }
+  
 
         return createResponse(true, "Review updated successfully", updatedData);
     } catch (error) {
@@ -119,7 +151,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             data: {
                 id,
                 filmId,
-                content,
+                content: content ?? "",
                 author: author.name ?? author.username ?? "",
                 url,
                 authorDetailsId: authorDetails.id,

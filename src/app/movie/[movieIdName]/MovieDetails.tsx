@@ -16,8 +16,9 @@ import type {
   ReleaseDatesResponse,
 } from "@/types/movieDataAPI.types";
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
+import { RedirectToSignIn, useUser } from "@clerk/nextjs";
 import api from "@/lib/utils/axiosInstance";
+import toast from "react-hot-toast";
 
 interface ReleaseDateType {
   day: string;
@@ -81,7 +82,9 @@ function MovieDetail({
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
 
+  // Insert and fetch reviews into database
   useEffect(() => {
+    //Fetch reviews from database
     const fetchReviews = async () => {
       if (!movieDetails?.id) {
         setLoading(false);
@@ -91,7 +94,6 @@ function MovieDetail({
       try {
         const response = await api.get(`/reviews?filmId=${movieDetails?.id}`);
         setReviews(response.data.data ?? []);
-        console.log("Fetched reviews:", response.data);
       } catch (error) {
         console.error("Error fetching reviews:", error);
       } finally {
@@ -99,6 +101,7 @@ function MovieDetail({
       }
     };
 
+    // Insert reviews from moviedb to database
     const insertReviews = async () => {
       if (!movieReviews || movieReviews.length === 0) return;
       try {
@@ -112,13 +115,37 @@ function MovieDetail({
       }
     };
 
+    // Insert reviews from moviedb to database
+    const statsFavorite = async () => {
+      if (!movieReviews || movieReviews.length === 0) return;
+      if (!movieKeywords || movieKeywords.length === 0) return;
+      if (!user) {
+        toast.error("Please login to review film")
+        return <RedirectToSignIn/>
+    }
+      const keywords = movieKeywords.map((keyword) => keyword.id);
+
+      try {
+
+        await api.post("/movies/stats",
+          { keywords, userId: user.id });
+        console.log("Statistic personal preference successful!");
+      } catch (error) {
+        console.error("Error statistic personal preference:", error);
+      } finally {
+        fetchReviews();
+      }
+    };
+
     fetchReviews();
 
     if (movieReviews && movieReviews.length > 0) {
       insertReviews();
+      if (user) statsFavorite();
     }
   }, [movieDetails?.id, movieReviews]);
 
+  //Caculate rating score
   useEffect(() => {
     if (reviews) {
       const toltalRating = reviews.reduce((accumulator, currentValue) => {
@@ -127,6 +154,8 @@ function MovieDetail({
       setAverageRating(toltalRating / reviews.length);
     }
   }, [reviews]);
+
+
 
   useEffect(() => {
     const bg_wrapper = refBG.current?.style;
@@ -356,7 +385,7 @@ const PosterHeader: React.FC<PosterHeaderProps> = ({
                 )}
               </div>
             </li> : <></>}
-            <li className="trailer">
+            {movieVideo && <li className="trailer">
               <ModalVideo
                 channel="youtube"
                 isOpen={isOpen}
@@ -370,7 +399,7 @@ const PosterHeader: React.FC<PosterHeaderProps> = ({
               <button onClick={() => setOpen(true)}>
                 <span className="playIcon"></span>Play Trailer
               </button>
-            </li>
+            </li>}
           </ul>
         </nav>
         <section className="header_info">
